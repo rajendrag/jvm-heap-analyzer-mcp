@@ -1,0 +1,30 @@
+[project]
+name = "heap-analyzer-mcp-server"
+version = "0.1.0"
+description = "MCP server exposing analyze_thread_dump and compare tools"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+  { name = "HeapAnalyzer", email = "noreply@example.com" }
+]
+keywords = ["mcp", "model context protocol", "thread dump", "jvm"]
+dependencies = ["model-context-protocol>=1.2.0,<2.0.0"]
+
+[project.scripts]
+heap-analyzer-mcp = "heap_analyzer_mcp.__main__:main"
+
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

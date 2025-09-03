@@ -1,0 +1,45 @@
+Metadata-Version: 2.4
+Name: heap-analyzer-mcp-server
+Version: 0.1.0
+Summary: MCP server exposing analyze_thread_dump and compare tools
+Author-email: HeapAnalyzer <noreply@example.com>
+Keywords: mcp,model context protocol,thread dump,jvm
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: model-context-protocol<2.0.0,>=1.2.0
+Provides-Extra: test
+Requires-Dist: pytest>=8.0.0; extra == "test"
+
+# Heap Analyzer MCP Server
+
+This repository is a Python-based MCP (Model Context Protocol) server exposing tools:
+
+- analyze_thread_dump: Parses a JVM thread dump text file and returns a summary of thread states and potential deadlocks.
+- compare_thread_dumps: Parses two JVM thread dump text files and returns a comparison of thread state counts and deadlocks.
+
+## Prerequisites
+- Python 3.9+
+
+## Installation
+```bash
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -e .
+```
+
+## Running the server (stdio)
+The entrypoint for stdio-based MCP is the console script `heap-analyzer-mcp`.
+
+```bash
+heap-analyzer-mcp
+```
+
+## Testing
+```bash
+pip install -e .[test]
+pytest -q
+```
+
+## Project layout
+- src/heap_analyzer_mcp/__main__.py   # server and tool implementations
+- tests/                              # pytest-based tests and sample thread dumps

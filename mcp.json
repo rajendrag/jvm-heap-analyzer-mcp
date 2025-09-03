@@ -1,0 +1,7 @@
+{
+  "name": "heap-analyzer-mcp",
+  "command": "heap-analyzer-mcp",
+  "args": [],
+  "env": {},
+  "timeout": 120000
+}

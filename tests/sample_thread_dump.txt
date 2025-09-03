@@ -1,0 +1,16 @@
+"main" #1 prio=5 os_prio=31 tid=0x000000000000000 nid=0x0001 runnable [0x0000000000000000]
+   java.lang.Thread.State: RUNNABLE
+	at java.lang.Thread.sleep(Native Method)
+
+"Reference Handler" #2 daemon prio=10 os_prio=31 tid=0x000000000000000 nid=0x0002 waiting on condition [0x0000000000000000]
+   java.lang.Thread.State: WAITING (parking)
+
+"Finalizer" #3 daemon prio=8 os_prio=31 tid=0x000000000000000 nid=0x0003 in Object.wait() [0x0000000000000000]
+   java.lang.Thread.State: WAITING (on object monitor)
+
+"Signal Dispatcher" #4 daemon prio=9 os_prio=31 tid=0x000000000000000 nid=0x0004 runnable [0x0000000000000000]
+   java.lang.Thread.State: RUNNABLE
+
+Found one Java-level deadlock:
+"Thread-1": waiting to lock monitor 0x0000000000, object 0x0000000000, which is held by "Thread-2"
+"Thread-2": waiting to lock monitor 0x0000000000, object 0x0000000000, which is held by "Thread-1"
