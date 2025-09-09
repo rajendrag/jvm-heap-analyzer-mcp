@@ -15,8 +15,8 @@ This repository provides a Python-based MCP (Model Context Protocol) server that
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/rajendrag/HeapAnalyzer.git
-   cd HeapAnalyzer
+   git clone https://github.com/rajendrag/jvm-heap-analyzer-mcp.git
+   cd jvm-heap-analyzer-mcp
    ```
 
 2. **Create and activate a virtual environment**:
@@ -41,8 +41,8 @@ This repository provides a Python-based MCP (Model Context Protocol) server that
 For development or if you want to modify the code:
 
 ```bash
-git clone https://github.com/rajendrag/HeapAnalyzer.git
-cd HeapAnalyzer
+git clone https://github.com/rajendrag/jvm-heap-analyzer-mcp.git
+cd jvm-heap-analyzer-mcp
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -e .
@@ -219,7 +219,7 @@ This uses the tools adapter to test functionality without requiring the full MCP
 ## Project Structure
 
 ```
-HeapAnalyzer/
+jvm-heap-analyzer-mcp/
 ├── src/heap_analyzer_mcp/
 │   ├── __init__.py
 │   ├── __main__.py           # MCP server and tool implementations
