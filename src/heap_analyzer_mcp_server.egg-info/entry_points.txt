@@ -1,2 +1,2 @@
 [console_scripts]
-heap-analyzer-mcp = heap_analyzer_mcp.__main__:main
+heap-analyzer-mcp-server = heap_analyzer_mcp.__main__:main

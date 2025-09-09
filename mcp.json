@@ -1,6 +1,6 @@
 {
-  "name": "heap-analyzer-mcp",
-  "command": "heap-analyzer-mcp",
+  "name": "heap-analyzer-mcp-server",
+  "command": "heap-analyzer-mcp-server",
   "args": [],
   "env": {},
   "timeout": 120000

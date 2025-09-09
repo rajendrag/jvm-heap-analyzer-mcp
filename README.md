@@ -1,93 +1,94 @@
 # Heap Analyzer MCP Server
 
-This repository is a Python-based MCP (Model Context Protocol) server exposing tools:
+This repository provides a Python-based MCP (Model Context Protocol) server that exposes tools for analyzing JVM thread dumps:
 
-- analyze_thread_dump: Parses a JVM thread dump text file and returns a summary of thread states and potential deadlocks.
-- compare_thread_dumps: Parses two JVM thread dump text files and returns a comparison of thread state counts and deadlocks.
+- **analyze_thread_dump**: Parses a JVM thread dump text file and returns a summary of thread states and potential deadlocks.
+- **compare_thread_dumps**: Parses two JVM thread dump text files and returns a comparison of thread state counts and deadlocks.
 
 ## Prerequisites
 - Python 3.9+
+- pip (Python package installer)
 
 ## Installation
+
+### Option 1: Clone and Build from Source (Recommended)
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/rajendrag/HeapAnalyzer.git
+   cd HeapAnalyzer
+   ```
+
+2. **Create and activate a virtual environment**:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
+
+3. **Build the wheel**:
+   ```bash
+   pip install build
+   python -m build
+   ```
+
+4. **Install the package**:
+   ```bash
+   pip install dist/heap_analyzer_mcp_server-0.1.0-py3-none-any.whl
+   ```
+
+### Option 2: Development Installation
+
+For development or if you want to modify the code:
+
 ```bash
+git clone https://github.com/rajendrag/HeapAnalyzer.git
+cd HeapAnalyzer
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -e .
 ```
 
-## Running the server (stdio)
-The entrypoint for stdio-based MCP is the console script `heap-analyzer-mcp`.
+## Usage with MCP Clients
 
-```bash
-heap-analyzer-mcp
-```
+After installation, the server can be used with any MCP-compatible client. The console script `heap-analyzer-mcp-server` will be available in your PATH.
 
-Most MCP clients will spawn this binary and communicate over stdio.
+### Claude Desktop Configuration
 
----
+1. **Locate your Claude Desktop config directory**:
+   - **macOS**: `~/Library/Application Support/Claude/`
+   - **Windows**: `%APPDATA%\Claude\`
 
-## Example usage
+2. **Create or edit the `claude_desktop_config.json` file**:
+   ```json
+   {
+     "mcpServers": {
+       "heap-analyzer-mcp": {
+         "command": "heap-analyzer-mcp-server",
+         "args": []
+       }
+     }
+   }
+   ```
 
-You can try the tools against the sample thread dumps in tests/.
+3. **Restart Claude Desktop** to load the new server configuration.
 
-- Analyze a single dump (tool: analyze_thread_dump):
-  - Arguments example (JSON):
-    ```json
-    { "path": "tests/sample_thread_dump.txt", "max_threads": 5000 }
-    ```
-  - Example response (truncated):
-    ```json
-    {
-      "summary": "Analyzed 4 threads (limit 5000). States: RUNNABLE=2, WAITING=2",
-      "counts": {"RUNNABLE":2, "WAITING":2, "BLOCKED":0, "TIMED_WAITING":0, "NEW":0, "TERMINATED":0},
-      "deadlocks": [{"threads":["Thread-1","Thread-2"], "monitor":"..."}]
-    }
-    ```
+### Generic MCP Client Configuration
 
-- Compare two dumps (tool: compare_thread_dumps):
-  - Arguments example (JSON):
-    ```json
-    {
-      "path_a": "tests/sample_thread_dump.txt",
-      "path_b": "tests/sample_thread_dump_2.txt",
-      "diff_mode": "full",
-      "max_threads": 5000
-    }
-    ```
-  - Example response (truncated):
-    ```json
-    {
-      "summary": "State deltas: no changes; Deadlocks present only in A",
-      "counts_a": {"RUNNABLE":2, "WAITING":2, "BLOCKED":0, "TIMED_WAITING":0, "NEW":0, "TERMINATED":0},
-      "counts_b": {"RUNNABLE":2, "WAITING":2, "BLOCKED":0, "TIMED_WAITING":0, "NEW":0, "TERMINATED":0},
-      "deltas": {"RUNNABLE":0, "WAITING":0, "BLOCKED":0, "TIMED_WAITING":0, "NEW":0, "TERMINATED":0},
-      "deadlocks_a": [{"threads":["Thread-1","Thread-2"]}],
-      "deadlocks_b": [],
-      "notes": "Deadlocks present only in A"
-    }
-    ```
-  - diff_mode options:
-    - summary: returns only {"summary", "notes"}
-    - states: returns {"summary", "counts_a", "counts_b", "deltas"}
-    - full: returns all fields
-
----
-
-## MCP client configuration (mcp.json)
-
-Many clients (e.g., Claude Desktop) support a per-server JSON config. Save a minimal mcp.json in your client’s config directory, or next to the project, like:
+For other MCP clients, use this configuration:
 
 ```json
 {
   "name": "heap-analyzer-mcp",
-  "command": "heap-analyzer-mcp",
+  "command": "heap-analyzer-mcp-server",
   "args": [],
   "env": {},
   "timeout": 120000
 }
 ```
 
-If you prefer using Python directly without installing as a console script, you can point command to Python and run the module:
+### Alternative: Using Python Module Directly
+
+If you prefer not to use the console script:
 
 ```json
 {
@@ -98,53 +99,173 @@ If you prefer using Python directly without installing as a console script, you 
 }
 ```
 
-Notes:
-- The server communicates over stdio, so no host/port is required.
-- Files referenced in arguments (path, path_a, path_b) must be accessible by the server process.
-- Files larger than 10MB are rejected for safety.
+## Testing the Server
 
-For Claude Desktop, see their docs for where to place mcp.json. A common pattern is adding entries under a top-level mcpServers config. Example snippet:
+You can test the server manually to ensure it's working:
 
+```bash
+# Test that the server starts without errors
+echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}' | heap-analyzer-mcp-server
+
+# Test import functionality
+python -c "from heap_analyzer_mcp.__main__ import main; print('✅ Server is working!')"
+```
+
+## Available Tools
+
+### 1. analyze_thread_dump
+
+Analyzes a single JVM thread dump file.
+
+**Parameters**:
+- `path` (required): Path to the thread dump text file
+- `max_threads` (optional): Maximum number of threads to analyze (default: 5000)
+
+**Example usage in MCP client**:
 ```json
 {
-  "mcpServers": {
-    "heap-analyzer-mcp": {
-      "command": "heap-analyzer-mcp",
-      "args": []
-    }
-  }
+  "path": "/path/to/thread_dump.txt",
+  "max_threads": 5000
 }
 ```
+
+**Example response**:
+```json
+{
+  "summary": "Analyzed 4 threads (limit 5000). States: RUNNABLE=2, WAITING=2",
+  "counts": {
+    "RUNNABLE": 2,
+    "WAITING": 2,
+    "BLOCKED": 0,
+    "TIMED_WAITING": 0,
+    "NEW": 0,
+    "TERMINATED": 0
+  },
+  "deadlocks": [
+    {
+      "threads": ["Thread-1", "Thread-2"],
+      "monitor": "java.lang.Object@12345"
+    }
+  ]
+}
 ```
 
----
+### 2. compare_thread_dumps
 
-## Testing
-You can run tests in two ways:
+Compares two JVM thread dump files and shows the differences.
 
-1) Standard install with extras
-```bash
-pip install -e .[test]
-pytest -q
+**Parameters**:
+- `path_a` (required): Path to the first thread dump file
+- `path_b` (required): Path to the second thread dump file
+- `max_threads` (optional): Maximum number of threads to analyze (default: 5000)
+- `diff_mode` (optional): Level of detail in comparison (default: "full")
+  - `"summary"`: Returns only summary and notes
+  - `"states"`: Returns summary, counts, and deltas
+  - `"full"`: Returns all fields including deadlock details
+
+**Example usage in MCP client**:
+```json
+{
+  "path_a": "/path/to/dump1.txt",
+  "path_b": "/path/to/dump2.txt",
+  "diff_mode": "full",
+  "max_threads": 5000
+}
 ```
 
-2) Without installing external MCP dependencies (adapter-based)
-If installing model-context-protocol is not feasible in your environment, you can still run the parser and MCP-tools adapter tests without installing the package:
+**Example response**:
+```json
+{
+  "summary": "State deltas: RUNNABLE=+1, WAITING=-1; Deadlocks present only in A",
+  "counts_a": {"RUNNABLE": 2, "WAITING": 2, "BLOCKED": 0, "TIMED_WAITING": 0, "NEW": 0, "TERMINATED": 0},
+  "counts_b": {"RUNNABLE": 3, "WAITING": 1, "BLOCKED": 0, "TIMED_WAITING": 0, "NEW": 0, "TERMINATED": 0},
+  "deltas": {"RUNNABLE": 1, "WAITING": -1, "BLOCKED": 0, "TIMED_WAITING": 0, "NEW": 0, "TERMINATED": 0},
+  "deadlocks_a": [{"threads": ["Thread-1", "Thread-2"], "monitor": "java.lang.Object@12345"}],
+  "deadlocks_b": [],
+  "notes": "Deadlocks present only in A"
+}
+```
+
+## Sample Thread Dumps
+
+The repository includes sample thread dumps in the `tests/` directory that you can use for testing:
+- `tests/sample_thread_dump.txt`
+- `tests/sample_thread_dump_2.txt`
+
+## Development and Testing
+
+### Running Tests
+
+1. **Install test dependencies**:
+   ```bash
+   pip install -e .[test]
+   ```
+
+2. **Run tests**:
+   ```bash
+   pytest -q
+   ```
+
+### Alternative Testing (without MCP dependencies)
+
+If you can't install MCP dependencies in your environment:
+
 ```bash
 PYTHONPATH=src python3 -m pytest -q
 ```
-This uses src/heap_analyzer_mcp/tools_adapter.py to mirror the MCP tools' behavior without importing modelcontextprotocol.
 
----
+This uses the tools adapter to test functionality without requiring the full MCP runtime.
 
-## Project layout
-- src/heap_analyzer_mcp/__main__.py   # server and tool implementations
-- src/heap_analyzer_mcp/parser.py     # dependency-free parser used by tools and tests
-- src/heap_analyzer_mcp/tools_adapter.py  # MCP tool behavior for tests without MCP runtime
-- tests/                              # pytest-based tests and sample thread dumps
+## Project Structure
+
+```
+HeapAnalyzer/
+├── src/heap_analyzer_mcp/
+│   ├── __init__.py
+│   ├── __main__.py           # MCP server and tool implementations
+│   ├── parser.py             # Core thread dump parsing logic
+│   └── tools_adapter.py      # MCP tool behavior for testing
+├── tests/                    # Test files and sample thread dumps
+├── pyproject.toml           # Package configuration
+└── README.md               # This file
+```
+
+## Limitations and Notes
+
+- **File size limit**: Thread dump files larger than 10MB are rejected for safety
+- **File access**: Files must be accessible by the server process (consider file permissions)
+- **Thread limit**: By default, analysis is limited to 5000 threads per dump
+- **Communication**: The server uses stdio for communication with MCP clients
 
 ## Troubleshooting
-- If your client can’t start the server, try running `heap-analyzer-mcp` from a terminal to verify it launches.
-- On Windows, activate the virtual environment via `.venv\Scripts\activate` before launching your client.
-- If the client reports missing package model-context-protocol, ensure you installed with `pip install -e .` inside an active venv.
-- Large files: Thread dumps >10MB are rejected by design.
+
+### Server Won't Start
+- Verify installation: `heap-analyzer-mcp-server --help`
+- Check Python environment: `which python` and `which heap-analyzer-mcp-server`
+- Try running directly: `python -m heap_analyzer_mcp`
+
+### Client Can't Connect
+- Ensure the server binary is in your PATH
+- Verify the client configuration file syntax
+- Check that the virtual environment is activated when starting the client
+- Look at client logs for specific error messages
+
+### Permission Issues
+- Ensure thread dump files are readable by the server process
+- On Windows, you may need to use full paths in the configuration
+
+### Import Errors
+- Verify all dependencies are installed: `pip list | grep mcp`
+- Try reinstalling: `pip uninstall heap-analyzer-mcp-server && pip install dist/heap_analyzer_mcp_server-0.1.0-py3-none-any.whl`
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests: `pytest`
+5. Submit a pull request
+
+## License
+
+This project is open source. Please check the repository for license details.

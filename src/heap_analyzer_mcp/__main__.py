@@ -2,18 +2,17 @@ import asyncio
 import json
 import os
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from heap_analyzer_mcp.parser import ThreadDumpAnalysis, parse_thread_dump
-from modelcontextprotocol.server import Server
-from modelcontextprotocol.transport.stdio import StdioServerTransport
-from modelcontextprotocol.types import (
+from mcp.server import Server
+from mcp.server.stdio import stdio_server
+from mcp.types import (
     CallToolResult,
-    ErrorCode,
-    JSONValue,
+    INTERNAL_ERROR,
+    INVALID_PARAMS,
     TextContent,
     Tool,
-    ToolInputSchema,
 )
 
 
@@ -21,7 +20,7 @@ from modelcontextprotocol.types import (
 class ThreadDumpAnalysis:
     summary: str
     counts: Dict[str, int]
-    deadlocks: List[Dict[str, JSONValue]]
+    deadlocks: List[Dict[str, Any]]
 
 
 def parse_thread_dump(text: str, max_threads: int = 5000) -> ThreadDumpAnalysis:
@@ -35,7 +34,7 @@ def parse_thread_dump(text: str, max_threads: int = 5000) -> ThreadDumpAnalysis:
     ]}
     total_threads = 0
 
-    deadlocks: List[Dict[str, JSONValue]] = []
+    deadlocks: List[Dict[str, Any]] = []
 
     lines = text.splitlines()
     i = 0
@@ -87,46 +86,29 @@ def parse_thread_dump(text: str, max_threads: int = 5000) -> ThreadDumpAnalysis:
 async def main_async() -> None:
     server = Server("heap-analyzer-mcp")
 
-    analyze_tool = Tool(
-        name="analyze_thread_dump",
-        description=(
-            "Parses a JVM thread dump text and returns a summary of thread states and potential deadlocks."
-        ),
-        input_schema=ToolInputSchema.json_schema({
-            "type": "object",
-            "required": ["path"],
-            "properties": {
-                "path": {"type": "string", "description": "Path to thread dump text file"},
-                "max_threads": {"type": "integer", "minimum": 1, "default": 5000},
-            },
-            "additionalProperties": False,
-        }),
-    )
-
-    @server.tool(analyze_tool)
     async def analyze_thread_dump_tool(call) -> CallToolResult:
         try:
             path = call.arguments.get("path")
             if not isinstance(path, str) or not path:
-                return CallToolResult.error(ErrorCode.INVALID_PARAMS, "'path' must be a non-empty string")
+                return CallToolResult(content=[TextContent(type="text", text="'path' must be a non-empty string")], isError=True)
             max_threads = call.arguments.get("max_threads", 5000)
             if not isinstance(max_threads, int) or max_threads <= 0:
-                return CallToolResult.error(ErrorCode.INVALID_PARAMS, "'max_threads' must be a positive integer")
+                return CallToolResult(content=[TextContent(type="text", text="'max_threads' must be a positive integer")], isError=True)
 
             if not os.path.exists(path):
-                return CallToolResult.error(ErrorCode.INVALID_PARAMS, f"File not found: {path}")
+                return CallToolResult(content=[TextContent(type="text", text=f"File not found: {path}")], isError=True)
             if os.path.isdir(path):
-                return CallToolResult.error(ErrorCode.INVALID_PARAMS, f"Path is a directory: {path}")
+                return CallToolResult(content=[TextContent(type="text", text=f"Path is a directory: {path}")], isError=True)
 
             if os.path.getsize(path) > 10 * 1024 * 1024:
-                return CallToolResult.error(ErrorCode.INTERNAL_ERROR, "File too large (>10MB)")
+                return CallToolResult(content=[TextContent(type="text", text="File too large (>10MB)")], isError=True)
 
             with open(path, 'r', encoding='utf-8', errors='replace') as f:
                 text = f.read()
 
             analysis = parse_thread_dump(text, max_threads=max_threads)
 
-            payload: Dict[str, JSONValue] = {
+            payload: Dict[str, Any] = {
                 "summary": analysis.summary,
                 "counts": analysis.counts,
                 "deadlocks": analysis.deadlocks,
@@ -135,27 +117,8 @@ async def main_async() -> None:
                 content=[TextContent(type="text", text=json.dumps(payload))]
             )
         except Exception as e:
-            return CallToolResult.error(ErrorCode.INTERNAL_ERROR, f"Exception: {e}")
+            return CallToolResult(content=[TextContent(type="text", text=f"Exception: {e}")], isError=True)
 
-    compare_tool = Tool(
-        name="compare_thread_dumps",
-        description=(
-            "Parses two JVM thread dump text files and returns a comparison of thread state counts and deadlocks."
-        ),
-        input_schema=ToolInputSchema.json_schema({
-            "type": "object",
-            "required": ["path_a", "path_b"],
-            "properties": {
-                "path_a": {"type": "string", "description": "Path to first thread dump text file"},
-                "path_b": {"type": "string", "description": "Path to second thread dump text file"},
-                "max_threads": {"type": "integer", "minimum": 1, "default": 5000},
-                "diff_mode": {"type": "string", "enum": ["summary", "states", "full"], "default": "full"}
-            },
-            "additionalProperties": False,
-        }),
-    )
-
-    @server.tool(compare_tool)
     async def compare_thread_dumps_tool(call) -> CallToolResult:
         try:
             path_a = call.arguments.get("path_a")
@@ -164,21 +127,21 @@ async def main_async() -> None:
             diff_mode = call.arguments.get("diff_mode", "full")
 
             if not isinstance(path_a, str) or not path_a:
-                return CallToolResult.error(ErrorCode.INVALID_PARAMS, "'path_a' must be a non-empty string")
+                return CallToolResult(content=[TextContent(type="text", text="'path_a' must be a non-empty string")], isError=True)
             if not isinstance(path_b, str) or not path_b:
-                return CallToolResult.error(ErrorCode.INVALID_PARAMS, "'path_b' must be a non-empty string")
+                return CallToolResult(content=[TextContent(type="text", text="'path_b' must be a non-empty string")], isError=True)
             if not isinstance(max_threads, int) or max_threads <= 0:
-                return CallToolResult.error(ErrorCode.INVALID_PARAMS, "'max_threads' must be a positive integer")
+                return CallToolResult(content=[TextContent(type="text", text="'max_threads' must be a positive integer")], isError=True)
             if diff_mode not in ("summary", "states", "full"):
-                return CallToolResult.error(ErrorCode.INVALID_PARAMS, "'diff_mode' must be one of: summary|states|full")
+                return CallToolResult(content=[TextContent(type="text", text="'diff_mode' must be one of: summary|states|full")], isError=True)
 
             for p in (path_a, path_b):
                 if not os.path.exists(p):
-                    return CallToolResult.error(ErrorCode.INVALID_PARAMS, f"File not found: {p}")
+                    return CallToolResult(content=[TextContent(type="text", text=f"File not found: {p}")], isError=True)
                 if os.path.isdir(p):
-                    return CallToolResult.error(ErrorCode.INVALID_PARAMS, f"Path is a directory: {p}")
+                    return CallToolResult(content=[TextContent(type="text", text=f"Path is a directory: {p}")], isError=True)
                 if os.path.getsize(p) > 10 * 1024 * 1024:
-                    return CallToolResult.error(ErrorCode.INTERNAL_ERROR, f"File too large (>10MB): {p}")
+                    return CallToolResult(content=[TextContent(type="text", text=f"File too large (>10MB): {p}")], isError=True)
 
             with open(path_a, 'r', encoding='utf-8', errors='replace') as fa:
                 text_a = fa.read()
@@ -207,7 +170,7 @@ async def main_async() -> None:
                     parts.append(deadlock_note)
                 return "; ".join(parts) if parts else "No notable differences"
 
-            payload: Dict[str, JSONValue] = {
+            payload: Dict[str, Any] = {
                 "summary": make_summary(),
                 "counts_a": a.counts,
                 "counts_b": b.counts,
@@ -224,10 +187,64 @@ async def main_async() -> None:
 
             return CallToolResult(content=[TextContent(type="text", text=json.dumps(payload))])
         except Exception as e:
-            return CallToolResult.error(ErrorCode.INTERNAL_ERROR, f"Exception: {e}")
+            return CallToolResult(content=[TextContent(type="text", text=f"Exception: {e}")], isError=True)
 
-    transport = StdioServerTransport()
-    await server.run(transport)
+    # Register tools with the server
+    @server.list_tools()
+    async def list_tools() -> list[Tool]:
+        return [
+            Tool(
+                name="analyze_thread_dump",
+                description=(
+                    "Parses a JVM thread dump text and returns a summary of thread states and potential deadlocks."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "required": ["path"],
+                    "properties": {
+                        "path": {"type": "string", "description": "Path to thread dump text file"},
+                        "max_threads": {"type": "integer", "minimum": 1, "default": 5000},
+                    },
+                    "additionalProperties": False,
+                },
+            ),
+            Tool(
+                name="compare_thread_dumps",
+                description=(
+                    "Parses two JVM thread dump text files and returns a comparison of thread state counts and deadlocks."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "required": ["path_a", "path_b"],
+                    "properties": {
+                        "path_a": {"type": "string", "description": "Path to first thread dump text file"},
+                        "path_b": {"type": "string", "description": "Path to second thread dump text file"},
+                        "max_threads": {"type": "integer", "minimum": 1, "default": 5000},
+                        "diff_mode": {"type": "string", "enum": ["summary", "states", "full"], "default": "full"}
+                    },
+                    "additionalProperties": False,
+                },
+            ),
+        ]
+
+    @server.call_tool()
+    async def call_tool(name: str, arguments: dict) -> CallToolResult:
+        if name == "analyze_thread_dump":
+            # Create a mock call object
+            class MockCall:
+                def __init__(self, args):
+                    self.arguments = args
+            return await analyze_thread_dump_tool(MockCall(arguments))
+        elif name == "compare_thread_dumps":
+            class MockCall:
+                def __init__(self, args):
+                    self.arguments = args
+            return await compare_thread_dumps_tool(MockCall(arguments))
+        else:
+            return CallToolResult(content=[TextContent(type="text", text=f"Unknown tool: {name}")], isError=True)
+
+    async with stdio_server() as (read_stream, write_stream):
+        await server.run(read_stream, write_stream, initialization_options={})
 
 
 def main() -> None:
